@@ -1,0 +1,130 @@
+General:
+  hostname: PE-BIDULE
+  type: PE
+  user:
+    - name: admin
+      privilege: 15
+      password: password
+
+interface:
+  - type: loopback
+    description: Interface loopback 0
+    interfaceID: 0
+    interfaceAddress:
+      ipv4:
+        ip: 192.168.10.5
+        mask: 255.255.255.255
+  - type: ethernet
+    description: Interface ethernet 0/1
+    interfaceID: 0/1
+    mode: acces
+    vlan: 10
+    interfaceAddress:
+      ipv4:
+        ip: 192.168.10.1
+        mask: 255.255.255.0
+      ipv6:
+        link_local: 5
+        address:
+          - ip: 2001:54:15::/64
+            type: eui-64
+          - ip: 2001:30:15::/64
+            type: eui-64
+  - type: ethernet
+    description: Interface ethernet 0/2
+    interfaceID: 0/2
+    mode: acces
+    vlan: 20
+    interfaceAddress:
+      ipv4:
+        ip: 192.168.10.1
+        mask: 255.255.255.0
+      ipv6:
+        link_local: 8
+        address:
+          - ip: 2001:54:20::/64
+            type: eui-64
+          - ip: 2001:30:11::/64
+            type: eui-64
+    ospf:
+      id: 100
+      area: 0
+    subInterface:
+      - subInterfaceID: 10
+        description: sub interface client
+        vrf: Example
+        mode: trunk
+        vlan: 30
+        encapsulation: dot1q
+        interfaceAddress:
+          ipv4:
+            ip: 10.59.64.10
+            mask: 255.255.255.0
+          ipv6:
+            link_local: 10
+            address:
+              - ip: 2001:54:15::/64
+                type: eui-64
+              - ip: 2001:54:20::/64
+                type: eui-64
+      - subInterfaceID: 20
+        description: sub interface client-b
+        vrf: Exampleb
+        mode: trunk
+        vlan: 40
+        encapsulation: dot1q
+        interfaceAddress:
+          ipv4: dhcp
+          ipv6:
+            link_local: 10
+            address:
+              - ip: 2001:54:15::/64
+                type: eui-64
+              - ip: 2001:54:20::/64
+                type: eui-64
+
+    
+
+Vrf:
+  - vrf: Example
+    rd: 192.168.10.10:20
+    import:
+      id:
+        - 192.168.10.10:20
+        - "240:10"
+    export:
+      id:
+        - "240:10"
+        - 192.168.12.20:30
+  - vrf: Example2
+    rd: 192.172.165.12:10
+    import:
+      id:
+        - 192.168.10.5:51
+        - "241:10"
+    export:
+      id:
+        - "240:10"
+        - 193.168.12.20:30
+
+Bgp:
+  asn:
+    id: 241
+  peer_session:
+    - 192.168.10.2
+    - 192.168.10.3
+  vpn:
+    - name: client-a
+      ip: 192.168.50.2
+    - name: client-b
+      ip: 192.168.49.5
+
+Dhcp:
+  - name: exampleV4
+    ip: ipv4
+    vrf: example
+    network:
+      - ip: 172.16.5.0
+        mask: 255.255.255.0
+        default_router: 172.16.5.1
+        domain_name: exmaple.com
