@@ -108,16 +108,22 @@ Vrf:
         - 193.168.12.20:30
 
 Bgp:
-  asn:
-    id: 241
-  peer_session:
-    - 192.168.10.2
-    - 192.168.10.3
-  vpn:
-    - name: client-a
-      ip: 192.168.50.2
-    - name: client-b
-      ip: 192.168.49.5
+  - bgpType: iBGP
+    asn:
+      id: 241
+    peer_session_template:
+      remote-as: 241
+      update-source: Loopback0
+    peer_session:
+      - 192.168.10.2
+      - 192.168.10.3
+    vpn:
+      - name: client-a
+        ip: 192.168.50.2
+      - name: client-b
+        ip: 192.168.49.5
+  - bgpType: eBGP
+
 
 Dhcp:
   - name: exampleV4

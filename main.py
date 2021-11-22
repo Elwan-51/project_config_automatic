@@ -145,6 +145,42 @@ class CreateConfig:
 
         return vrf_def
 
+    def bgp_router(self, **kwargs):
+        bgp_router_str = ""
+        for bgp in kwargs['Bgp']:
+            bgp_router_str += f"!{bgp['bgpType']}\n"
+            try :
+                if bgp['asn']:
+                    bgp_router_str += f"router bgp {bgp['asn']['id']}\n"
+            except:
+                pass
+
+            bgp_router_str += f"{self.peer_session_template(bgp)}"
+
+        return bgp_router_str
+
+    def peer_session_template(self,bgp):
+        peer_session = ""
+        try:
+            if bgp['peer_session_template']:
+                peer_session += f"template peer-session {bgp['bgpType']}-{bgp['asn']['id']}\n"
+                try:
+                    if bgp['peer_session_template']['remote-as']:
+                        peer_session += f"remote-as {bgp['peer_session_template']['remote-as']}\n"
+                except:
+                    pass
+                try:
+                    if bgp['peer_session_template']['update-source']:
+                        peer_session += f"update-source {bgp['peer_session_template']['update-source']}\n"
+                except:
+                    pass
+                peer_session += "exit-peer-session\n"
+        except:
+            pass
+        peer_session += "\n\n"
+
+        return peer_session
+
 
 def get_config(path):
     with open(path, 'r') as files:
@@ -159,4 +195,4 @@ if __name__ == '__main__':
     path = "Fichier-config.yml"
     config = CreateConfig()
     #print(config.create_interface(**get_config(path)))
-    print(config.vrf_def(**get_config(path)))
+    print(config.bgp_router(**get_config(path)))
