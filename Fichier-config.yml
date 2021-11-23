@@ -6,7 +6,7 @@ General:
       privilege: 15
       password: password
 
-interface:
+Interface:
   - type: loopback
     description: Interface loopback 0
     interfaceID: 0
@@ -14,6 +14,13 @@ interface:
       ipv4:
         ip: 192.168.10.5
         mask: 255.255.255.255
+  - type: vlan
+    description: interface vlan 20
+    vlan: 20
+    interfaceAddress:
+      ipv4:
+        ip: 192.32.52.12
+        mask: 255.255.255.0
   - type: ethernet
     description: Interface ethernet 0/1
     interfaceID: 0/1
@@ -114,14 +121,20 @@ Bgp:
     peer_session_template:
       remote-as: 241
       update-source: Loopback0
-    peer_session:
+    neighbor:
       - 192.168.10.2
       - 192.168.10.3
     vpn:
-      - name: client-a
-        ip: 192.168.50.2
-      - name: client-b
-        ip: 192.168.49.5
+        - type: vpnv4
+          client:
+            - name: client-a
+              ip: 10.59.12.2
+            - name: client-b
+              ip: 10.65.2.1
+        - type: vpnv6
+          client:
+            - name: client-c
+              ip: 2001:54::6/64
   - bgpType: eBGP
 
 
@@ -134,3 +147,15 @@ Dhcp:
         mask: 255.255.255.0
         default_router: 172.16.5.1
         domain_name: exmaple.com
+
+Vlan:
+  - id: 10
+    name: Internet
+  - id: 25
+    name: Client
+  - id: 30
+    name: Admin
+
+Ospf:
+  id: 100
+  router-id: loopback0

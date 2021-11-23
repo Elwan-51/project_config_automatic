@@ -16,6 +16,8 @@ class interface_Type(Enum):
     FAST_ETHERNET = "fa"
     GIGA_ETHERNET = "g"
     LOOPBACK = "lo"
+    VLAN = "vlan"
+
 
 class ipv6_Type(Enum):
 
@@ -36,23 +38,65 @@ class CreateConfigPE:
 
 
 class CreateConfig:
-    def create_interface(self, **kwargs):
+
+    def __init__(self, path):
+        data = self.get_config(path)
+        try:
+            if data['General']:
+                self.general = data['General']
+        except:
+            print("No general data")
+        try:
+            if data['Interface']:
+                self.interface = data['Interface']
+        except:
+            print("No interface data")
+        try:
+            if data['Vrf']:
+                self.vrf = data['Vrf']
+        except:
+            print('No vrf data')
+        try:
+            if data['Bgp']:
+                self.bgp = data['Bgp']
+        except:
+            print('No bgp data')
+        try:
+            if data['Dhcp']:
+                self.dhcp = data['Dhcp']
+        except:
+            print('No dhcp data')
+        try:
+            if data['Vlan']:
+                self.vlan = data['Vlan']
+        except:
+            print('No vlan data')
+        try:
+            if data['Ospf']:
+                self.ospf = data['Ospf']
+        except:
+            print("No ospf data")
+
+    def get_new_config_file(self, path):
+        self.__init__(path)
+
+    def create_interface(self):
         """That function is used to create the differente interface and subinterface we want:
         funcion used : - self.inteface(dic)
                        - self.sub_interface(dic)"""
-        interface = kwargs['interface']
+
         interface_str = f"!interfaces\n\n"
-        for inter in interface:
-            interface_str += f"{self.interface(inter)}"
+        for inter in self.interface:
+            interface_str += f"{self.set_interface(inter)}"
             try:
                 if inter['subInterface']:
-                    interface_str += f"{self.sub_interface(inter)}"
+                    interface_str += f"{self.set_sub_interface(inter)}"
             except:
                 pass
 
         return interface_str
 
-    def interface(self, inter):
+    def set_interface(self, inter):
         """interface will generate the configuration for an interface.
         function used : - interface_config(dic)"""
         interface_str = ""
@@ -64,10 +108,12 @@ class CreateConfig:
             interface_str += f"int {interface_Type.FAST_ETHERNET.value}{inter['interfaceID']}\n"
         elif inter['type'] == "giga_ethernet":
             interface_str += f"int {interface_Type.GIGA_ETHERNET.value}{inter['interfaceID']}\n"
-        interface_str += f"{self.interface_config(inter)}"
+        elif inter['type'] == "vlan":
+            interface_str += f"int {interface_Type.VLAN.value} {inter['vlan']}\n"
+        interface_str += f"{self.set_interface_config(inter)}"
         return interface_str
 
-    def sub_interface(self, inter):
+    def set_sub_interface(self, inter):
         """interface will generate all the configuration for the subinterface of an interface.
                 function used : - interface_config(dic)
                 it return all the sub_interface"""
@@ -82,10 +128,12 @@ class CreateConfig:
                 interface_str += f"int {interface_Type.FAST_ETHERNET.value}{inter['interfaceID']}.{sub_int['subInterfaceID']}\n"
             elif inter['type'] == "giga_ethernet":
                 interface_str += f"int {interface_Type.GIGA_ETHERNET.value}{inter['interfaceID']}.{sub_int['subInterfaceID']}\n"
-            interface_str += f"{self.interface_config(sub_int)}"
+            interface_str += f"{self.set_interface_config(sub_int)}"
+
+
         return interface_str
 
-    def interface_config(self, inter):
+    def set_interface_config(self, inter):
         """function who will generate the differente section of the interface configuration files"""
         interface_str = f"description {inter['description']}\n"
         try:
@@ -125,13 +173,13 @@ class CreateConfig:
             except:
                 pass
 
-        interface_str += "\n\n"
+        interface_str += "no shut\n\n\n"
         return interface_str
 
-    def vrf_def(self, **kwargs):
+    def set_vrf_def(self):
         """fucntion that create all the vrf definition for all the vrf"""
         vrf_def = f"!VRF DEFINITON\n"
-        for vrf in kwargs['Vrf']:
+        for vrf in self.vrf:
             vrf_def += f"vrf definion {vrf['vrf']}\n" \
                        f"rd {vrf['rd']}\n"
             if vrf['import']:
@@ -145,9 +193,9 @@ class CreateConfig:
 
         return vrf_def
 
-    def bgp_router(self, **kwargs):
+    def set_bgp_router(self):
         bgp_router_str = ""
-        for bgp in kwargs['Bgp']:
+        for bgp in self.bgp:
             bgp_router_str += f"!{bgp['bgpType']}\n"
             try :
                 if bgp['asn']:
@@ -155,11 +203,18 @@ class CreateConfig:
             except:
                 pass
 
-            bgp_router_str += f"{self.peer_session_template(bgp)}"
-
+            bgp_router_str += f"{self.set_peer_session_template(bgp)}\n"
+            try:
+                if bgp['neighbor']:
+                    for neighbor in bgp['neighbor']:
+                        bgp_router_str += f"neighbor {neighbor} inherit peer-session {bgp['bgpType']}-{bgp['asn']['id']}\n"
+            except:
+                pass
+            bgp_router_str += f"\n{self.set_vpn(bgp)}\n\n"
+            bgp_router_str += "\n"
         return bgp_router_str
 
-    def peer_session_template(self,bgp):
+    def set_peer_session_template(self, bgp):
         peer_session = ""
         try:
             if bgp['peer_session_template']:
@@ -177,22 +232,38 @@ class CreateConfig:
                 peer_session += "exit-peer-session\n"
         except:
             pass
-        peer_session += "\n\n"
 
         return peer_session
 
-
-def get_config(path):
-    with open(path, 'r') as files:
+    def set_vpn(self, vpn_list):
+        vpn_str = ""
         try:
-            parsed_yaml = yaml.safe_load(files)
-            return parsed_yaml
-        except yaml.YAMLError as exc:
-            print(exc)
+            vpns = vpn_list['vpn']
+            for vpn in vpns:
+                vpn_str += f"address-family {vpn['type']}\n"
+                for client in vpn['client']:
+                    vpn_str += f"!vpn for {client['name']}\n" \
+                               f"neighbor {client['ip']} activate\n" \
+                               f"neighbor {client['ip']} send-community both\n"
+                vpn_str += "exit-address-family\n\n"
+        except:
+            pass
+        return vpn_str
+
+    def set_vrf_bgp(self, vrf, bgp):
+        pass
+
+    def get_config(self, path):
+        with open(path, 'r') as files:
+            try:
+                parsed_yaml = yaml.safe_load(files)
+                return parsed_yaml
+            except yaml.YAMLError as exc:
+                print(exc)
 
 
 if __name__ == '__main__':
     path = "Fichier-config.yml"
-    config = CreateConfig()
-    #print(config.create_interface(**get_config(path)))
-    print(config.bgp_router(**get_config(path)))
+    config = CreateConfig(path)
+    #print(config.create_interface())
+    #print(config.set_bgp_router())
