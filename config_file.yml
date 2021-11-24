@@ -17,10 +17,6 @@ Interface:
   - type: vlan
     description: interface vlan 20
     vlan: 20
-    interfaceAddress:
-      ipv4:
-        ip: 192.32.52.12
-        mask: 255.255.255.0
   - type: ethernet
     description: Interface ethernet 0/1
     interfaceID: 0/1
@@ -135,6 +131,12 @@ Bgp:
           client:
             - name: client-c
               ip: 2001:54::6/64
+    vrf:
+      - name: Internet
+        ipType: ipv4
+        connection:
+          - static
+          - connected
   - bgpType: eBGP
 
 
