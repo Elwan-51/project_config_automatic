@@ -3,8 +3,6 @@ from CreateConfig import CreateConfig
 def main():
     path = "config_file.yml"
     config = CreateConfig(path)
-    print(config.create_interface())
-    #print(config.set_bgp_router())
-    print(config.set_vlan())
+    config.create_config_file("./config.txt")
 if __name__ == '__main__':
     main()

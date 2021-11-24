@@ -1,9 +1,13 @@
 General:
   hostname: PE-BIDULE
-  type: PE
   user:
     - name: admin
       privilege: 15
+      password: password
+  comm:
+    - type: telnet
+      password: password
+    - type: ssh
       password: password
 
 Interface:

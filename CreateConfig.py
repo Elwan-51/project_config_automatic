@@ -1,4 +1,10 @@
 import yaml
+from enum import Enum
+
+
+class connexion_Type(Enum):
+    TELNET = "0 4"
+    SSH = "0 15"
 
 
 class CreateConfig:
@@ -7,6 +13,13 @@ class CreateConfig:
         try:
             if data['General']:
                 self.general = data['General']
+                i = 0
+                for connexion in self.general['comm']:
+                    if connexion['type'] == "ssh":
+                        self.general['comm'][i]['type'] = connexion_Type.SSH
+                    elif connexion['type'] == "telnet":
+                        self.general['comm'][i]['type'] = connexion_Type.TELNET
+                    i += 1
         except:
             print("No general data")
         try:
@@ -43,23 +56,44 @@ class CreateConfig:
     def get_new_config_file(self, path):
         self.__init__(path)
 
+    # GENERAL SECTION
+    def set_general_data(self):
+        try:
+            if self.general:
+                general = f"hostname {self.general['hostname']}\n"
+                if self.general['user']:
+                    for user in self.general['user']:
+                        general += f"username {user['name']} priviege {user['privilege']} secret {user['password']}\n"
+                if self.general['comm']:
+                    for comm in self.general['comm']:
+                        general += f"\n! {comm['type'].name}\n" \
+                                   f"enable secret {comm['password']}\n" \
+                                   f"line vty {comm['type'].value}\n" \
+                                   f"transport input {comm['type'].name.lower()}\n" \
+                                   f"login local\n"
+                return general
+        except:
+            pass
     # INTERFACE SECTION
 
     def create_interface(self):
         """That function is used to create the diverse interface and subinterface we want:
         function used : - self.interface(dic)
                        - self.sub_interface(dic)"""
+        try:
+            if self.interface:
+                interface_str = f"!interfaces\n\n"
+                for inter in self.interface:
+                    interface_str += f"{self.set_interface(inter)}"
+                    try:
+                        if inter['subInterface']:
+                            interface_str += f"{self.set_sub_interface(inter)}"
+                    except:
+                        pass
 
-        interface_str = f"!interfaces\n\n"
-        for inter in self.interface:
-            interface_str += f"{self.set_interface(inter)}"
-            try:
-                if inter['subInterface']:
-                    interface_str += f"{self.set_sub_interface(inter)}"
-            except:
-                pass
-
-        return interface_str
+                return interface_str
+        except:
+            pass
 
     def set_interface(self, inter):
         """interface will generate the configuration for an interface.
@@ -97,7 +131,8 @@ class CreateConfig:
 
         return interface_str
 
-    def set_interface_config(self, inter):
+    @staticmethod
+    def set_interface_config(inter):
         """function who will generate the diverse section of the interface configuration files"""
         interface_str = f"description {inter['description']}\n"
         try:
@@ -148,46 +183,55 @@ class CreateConfig:
 
     def set_vrf_def(self):
         """function that create all the vrf definition for all the vrf"""
-        vrf_def = f"!vrf definition\n"
-        for vrf in self.vrf:
-            vrf_def += f"vrf definition {vrf['vrf'].upper()}\n" \
-                       f"rd {vrf['rd']}\n"
-            if vrf['import']:
-                for import_ in vrf['import']['id']:
-                    vrf_def += f'route-target import {import_}\n'
-            if vrf['export']:
-                for export in vrf['export']['id']:
-                    vrf_def += f'route-target export {export}\n'
-            vrf_def += f"address-family-ipv4\n" \
-                       f"address-family-ipv6\n\n"
-
-        return vrf_def
+        try:
+            if self.vrf:
+                vrf_def = f"!vrf definition\n"
+                for vrf in self.vrf:
+                    vrf_def += f"vrf definition {vrf['vrf'].upper()}\n" \
+                               f"rd {vrf['rd']}\n"
+                    if vrf['import']:
+                        for import_ in vrf['import']['id']:
+                            vrf_def += f'route-target import {import_}\n'
+                    if vrf['export']:
+                        for export in vrf['export']['id']:
+                            vrf_def += f'route-target export {export}\n'
+                    vrf_def += f"address-family-ipv4\n" \
+                               f"address-family-ipv6\n\n"
+                return vrf_def
+        except:
+            pass
 
     # BGP SECTION
 
     def set_bgp_router(self):
-        bgp_router_str = ""
-        for bgp in self.bgp:
-            bgp_router_str += f"!{bgp['bgpType']}\n"
-            try:
-                if bgp['asn']:
-                    bgp_router_str += f"router bgp {bgp['asn']['id']}\n"
-            except:
-                pass
+        try:
+            if self.bgp:
+                bgp_router_str = ""
+                for bgp in self.bgp:
+                    bgp_router_str += f"!{bgp['bgpType']}\n"
+                    try:
+                        if bgp['asn']:
+                            bgp_router_str += f"router bgp {bgp['asn']['id']}\n"
+                    except:
+                        pass
 
-            bgp_router_str += f"{self.set_peer_session_template(bgp)}\n"
-            try:
-                if bgp['neighbor']:
-                    for neighbor in bgp['neighbor']:
-                        bgp_router_str += f"neighbor {neighbor} inherit peer-session {bgp['bgpType'].upper()}-{bgp['asn']['id'].upper()}\n"
-            except:
-                pass
-            bgp_router_str += f"\n{self.set_vpn(bgp)}\n"
-            bgp_router_str += f"{self.set_vrf_bgp(bgp)}\n"
-            bgp_router_str += "\n"
-        return bgp_router_str
+                    bgp_router_str += f"{self.set_peer_session_template(bgp)}\n"
+                    try:
+                        if bgp['neighbor']:
+                            bgp_router_str += f"bgp log-neighbor-changes"
+                            for neighbor in bgp['neighbor']:
+                                bgp_router_str += f"neighbor {neighbor} inherit peer-session {bgp['bgpType'].upper()}-{bgp['asn']['id'].upper()}\n"
+                    except:
+                        pass
+                    bgp_router_str += f"\n{self.set_vpn(bgp)}\n"
+                    bgp_router_str += f"{self.set_vrf_bgp(bgp)}\n"
+                    bgp_router_str += "\n"
+                return bgp_router_str
+        except:
+            pass
 
-    def set_peer_session_template(self, bgp):
+    @staticmethod
+    def set_peer_session_template(bgp):
         peer_session = ""
         try:
             if bgp['peer_session_template']:
@@ -208,7 +252,8 @@ class CreateConfig:
 
         return peer_session
 
-    def set_vpn(self, vpn_list):
+    @staticmethod
+    def set_vpn(vpn_list):
         vpn_str = ""
         try:
             vpns = vpn_list['vpn']
@@ -223,7 +268,8 @@ class CreateConfig:
             pass
         return vpn_str
 
-    def set_vrf_bgp(self, bgp):
+    @staticmethod
+    def set_vrf_bgp(bgp):
         vrf_list = ""
         try:
             if bgp['vrf']:
@@ -245,19 +291,43 @@ class CreateConfig:
             if self.vlan:
                 vlan_str = "!vlan\n"
                 for vlan in self.vlan:
-                    print(vlan)
                     vlan_str += f"vlan {vlan['id']}\n" \
                                 f"name {vlan['name']}\n\n"
         except:
             pass
         return vlan_str
 
+    # OSPF SECTION
+
+    def set_ospf(self):
+        try:
+            ospf = "!ospf\n"
+            if self.ospf:
+                ospf += f"router ospf {self.ospf['id']}\n" \
+                        f"router-id {self.ospf['router-id']}\n"
+            return ospf
+        except:
+            pass
+
     # CONFIG FILE SECTION
 
-    def get_config(self, path):
+    @staticmethod
+    def get_config(path):
         with open(path, 'r') as files:
             try:
                 parsed_yaml = yaml.safe_load(files)
                 return parsed_yaml
             except yaml.YAMLError as exc:
                 print(exc)
+
+    def create_config_file(self, path):
+        with open(path, 'w') as files:
+            config = f"{self.set_general_data()}\n" \
+                     f"{self.set_ospf()}\n" \
+                     f"{self.set_vlan()}\n" \
+                     f"{self.create_interface()}\n" \
+                     f"{self.set_vrf_def()}\n" \
+                     f"{self.set_bgp_router()}\n" \
+                     f"{self.set_vrf_def()}\n"
+            files.write(config)
+            files.close()
