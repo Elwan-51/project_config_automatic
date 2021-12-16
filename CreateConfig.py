@@ -14,12 +14,16 @@ class CreateConfig:
             if data['General']:
                 self.general = data['General']
                 i = 0
-                for connexion in self.general['comm']:
-                    if connexion['type'] == "ssh":
-                        self.general['comm'][i]['type'] = connexion_Type.SSH
-                    elif connexion['type'] == "telnet":
-                        self.general['comm'][i]['type'] = connexion_Type.TELNET
-                    i += 1
+                try:
+                    if self.general['comm']:
+                        for connexion in self.general['comm']:
+                            if connexion['type'] == "ssh":
+                                self.general['comm'][i]['type'] = connexion_Type.SSH
+                            elif connexion['type'] == "telnet":
+                                self.general['comm'][i]['type'] = connexion_Type.TELNET
+                            i += 1
+                except:
+                    pass
         except:
             print("No general data")
         try:
@@ -64,6 +68,7 @@ class CreateConfig:
                 if self.general['user']:
                     for user in self.general['user']:
                         general += f"username {user['name']} priviege {user['privilege']} secret {user['password']}\n"
+            try:
                 if self.general['comm']:
                     for comm in self.general['comm']:
                         general += f"\n! {comm['type'].name}\n" \
@@ -71,7 +76,9 @@ class CreateConfig:
                                    f"line vty {comm['type'].value}\n" \
                                    f"transport input {comm['type'].name.lower()}\n" \
                                    f"login local\n"
-                return general
+            except:
+                pass
+            return general
         except:
             pass
     # INTERFACE SECTION
@@ -90,7 +97,6 @@ class CreateConfig:
                             interface_str += f"{self.set_sub_interface(inter)}"
                     except:
                         pass
-
                 return interface_str
         except:
             pass
@@ -128,7 +134,6 @@ class CreateConfig:
             elif inter['type'] == "giga_ethernet":
                 interface_str += f"int g{inter['interfaceID']}.{sub_int['subInterfaceID']}\n"
             interface_str += f"{self.set_interface_config(sub_int)}"
-
         return interface_str
 
     @staticmethod
@@ -139,8 +144,14 @@ class CreateConfig:
             if inter['mode'] == "acces":
                 interface_str += f"switchport mode acces vlan {inter['vlan']}\n"
             elif inter['mode'] == "trunk":
-                interface_str += f"switchport trunk encapsulation {inter['encapsulation']} {inter['vlan']}\n" \
-                                 f"switchport mode trunk\n"
+                try:
+                    if inter['subInterfaceID']:
+                        interface_str += f"switchport trunk encapsulation {inter['encapsulation']} {inter['vlan']} \n" \
+                                         f"switchport mode trunk\n"
+                except:
+                    interface_str += f"switchport trunk encapsulation {inter['encapsulation']}\n" \
+                                     f"switchport trunk native {inter['native']}\n" \
+                                     f"switchport mode trunk\n"
         except:
             pass
         try:
@@ -169,7 +180,11 @@ class CreateConfig:
                     pass
         except:
             pass
-
+            try:
+                if inter['default-gateway']:
+                    interface_str += f"default-gateway {inter['default-gateway']}\n"
+            except:
+                pass
             try:
                 if inter['vrf']:
                     interface_str += f"vrf forwarding {inter['vrf'].upper()}\n"
@@ -309,25 +324,56 @@ class CreateConfig:
         except:
             pass
 
+    def set_dhcp(self):
+        try:
+            if self.dhcp:
+                dhcp_str = "!DHCP\n"
+                for dhcp in self.dhcp:
+                    if dhcp['ipType'] == "ipv4":
+                        dhcp_str += f"ip dhcp pool {dhcp['name']}\n"
+                        try:
+                            if dhcp['vrf']:
+                                dhcp_str += f"vrf {dhcp['vrf']}\n"
+                        except:
+                            pass
+                        dhcp_str += f"network {dhcp['network']['ip']} {dhcp['network']['mask']}\n"
+
+                        try:
+                            if dhcp['network']['default_router']:
+                                dhcp_str += f"default-router {dhcp['network']['default_router']}"
+                        except:
+                            pass
+                        try:
+                            if dhcp['network']['domain-name']:
+                                dhcp_str += f"domain-name {dhcp['network']['domain-name']}\n"
+                        except:
+                            pass
+                    elif dhcp['ipType'] == "ipv6":
+                        pass
+                return dhcp_str
+        except:
+            pass
     # CONFIG FILE SECTION
 
     @staticmethod
     def get_config(path):
         with open(path, 'r') as files:
-            try:
-                parsed_yaml = yaml.safe_load(files)
-                return parsed_yaml
-            except yaml.YAMLError as exc:
-                print(exc)
+                try:
+                    parsed_yaml = yaml.safe_load(files)
+                    return parsed_yaml
+                except yaml.YAMLError as exc:
+                    print(exc)
 
-    def create_config_file(self, path):
+    def create_config_file(self, path="config.txt"):
         with open(path, 'w') as files:
             config = f"{self.set_general_data()}\n" \
+                     f"{self.set_dhcp()}\n" \
                      f"{self.set_ospf()}\n" \
                      f"{self.set_vlan()}\n" \
                      f"{self.create_interface()}\n" \
                      f"{self.set_vrf_def()}\n" \
                      f"{self.set_bgp_router()}\n" \
                      f"{self.set_vrf_def()}\n"
+            config = config.replace("None"," ")
             files.write(config)
             files.close()
